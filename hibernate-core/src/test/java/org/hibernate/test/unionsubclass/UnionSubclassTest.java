@@ -431,7 +431,7 @@ public class UnionSubclassTest extends BaseCoreFunctionalTestCase {
 		s.close();
 		s = openSession();
 		tx = s.beginTransaction();
-		Query q = s.createQuery( "from Being h where h.identity = :name1 or h.identity = :name2" );
+		Query q = s.createQuery( "from Being h where h.identity = :name1 or h.identity = :name2 or h.identity = :name2" );
 		q.setString("name1", "marc");
 		q.setString("name2", "steve");
 		final List result = q.list();
