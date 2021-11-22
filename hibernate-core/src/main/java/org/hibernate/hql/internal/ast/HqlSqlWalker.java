@@ -824,11 +824,37 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 	}
 
 	private void pushdownPredictIntoFromElement_IfNeed(AST query) {
+		final ParamaterValidationResult_ForPushdownPredictIntoFromElement paramaterValidateResult = validateParameterForPushdownPredictIntoFromElement(query);
+		if (! paramaterValidateResult.validParameter) {
+			return;
+		}
+
+		doPushdownPredictIntoFromElement(paramaterValidateResult.fromElement, paramaterValidateResult.astWhereExpr, paramaterValidateResult.mapMap_SubClassTableColumnNullValues);
+	}
+
+	private static class ParamaterValidationResult_ForPushdownPredictIntoFromElement {
+		public static final ParamaterValidationResult_ForPushdownPredictIntoFromElement FALSE
+				= new ParamaterValidationResult_ForPushdownPredictIntoFromElement(false, null, null, null);
+
+		public final boolean validParameter;
+		public final FromElement fromElement;
+		public final AST astWhereExpr;
+		public final Map<String, Map<String, String>> mapMap_SubClassTableColumnNullValues;
+
+		private ParamaterValidationResult_ForPushdownPredictIntoFromElement(boolean validParameter, FromElement fromElement, AST astWhereExpr, Map<String, Map<String, String>> mapMap_SubClassTableColumnNullValues) {
+			this.validParameter = validParameter;
+			this.fromElement = fromElement;
+			this.astWhereExpr = astWhereExpr;
+			this.mapMap_SubClassTableColumnNullValues = mapMap_SubClassTableColumnNullValues;
+		}
+	}
+
+	private ParamaterValidationResult_ForPushdownPredictIntoFromElement validateParameterForPushdownPredictIntoFromElement(AST query) {
 		if (! (query instanceof QueryNode)) {
 			if ( LOG.isTraceEnabled() ) {
 				LOG.trace("query '" + query + "' is not instanceof QueryNode, so does NOT do pushdown-predict.");
 			}
-			return;
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
 		}
 
 		final QueryNode queryNode = (QueryNode) query;
@@ -837,7 +863,7 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 			if ( LOG.isTraceEnabled() ) {
 				LOG.trace("fromClause '" + fromClause + "' has " + fromClause.getFromElements().size() + " fromElements, not just 1, so does NOT do pushdown-predict.");
 			}
-			return;
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
 		}
 
 		final Object objFromElement = fromClause.getFromElements().get(0);
@@ -845,7 +871,7 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 			if ( LOG.isTraceEnabled() ) {
 				LOG.trace("fromClause.getFromElements().get(0) '" + objFromElement + "' is not FromElement, so does NOT do pushdown-predict.");
 			}
-			return;
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
 		}
 
 		final FromElement fromElement = (FromElement) objFromElement;
@@ -853,7 +879,18 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 			if ( LOG.isTraceEnabled() ) {
 				LOG.trace("isValidFromElementForPushdownPredict(fromElement) on fromElement '" + fromElement + "' is false, so does NOT do pushdown-predict.");
 			}
-			return;
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
+		}
+
+		final Map<String, Map<String, String>> mapMap_SubClassTableColumnNullValues
+				= ((UnionSubclassEntityPersister) fromElement.getEntityPersister()).getSubClassTableColumnNullValues().tableColumnNullValues;
+		final int numberOfSubclassesOfEntityClassInFromElement = getOccurrencesOf_FormatSpecifierForPushdownPredict(fromElement.getText_asSubqueryWithFormatTemplate());
+		if ( numberOfSubclassesOfEntityClassInFromElement != mapMap_SubClassTableColumnNullValues.size() ) {
+			LOG.warnf( "numberOfSubclassesOfEntityClassInFromElement != mapMap_SubClassTableColumnNullValues.size()." +
+							" The former is [%d], the latter is [%d], the fromElement.getText_asSubqueryWithFormatTemplate() is [%s].",
+					numberOfSubclassesOfEntityClassInFromElement, mapMap_SubClassTableColumnNullValues.size(), fromElement.getText_asSubqueryWithFormatTemplate() );
+
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
 		}
 
 		final AST astWhereClause = fromClause.getNextSibling();
@@ -861,19 +898,20 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 			if ( LOG.isTraceEnabled() ) {
 				LOG.trace("validateTextAndTypeOfAST(astWhereClause, \"where\", SqlTokenTypes.WHERE) on astWhereClause '" + astWhereClause + "' is false, so does NOT do pushdown-predict.");
 			}
-			return;
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
 		}
 
 		final AST astWhereExpr = astWhereClause.getFirstChild();
-		final Map<String, Map<String, String>> mapMap_SubClassTableColumnNullValues
-				= ((UnionSubclassEntityPersister) fromElement.getEntityPersister()).getSubClassTableColumnNullValues().tableColumnNullValues;
-		final int numberOfSubclassesOfEntityClassInFromElement = getOccurrencesOf_FormatSpecifierForPushdownPredict(fromElement.getText_asSubqueryWithFormatTemplate());
-		if ( numberOfSubclassesOfEntityClassInFromElement != mapMap_SubClassTableColumnNullValues.size() ) {
-			LOG.warnf( "numberOfSubclassesOfEntityClassInFromElement != mapMap_SubClassTableColumnNullValues.size()." +
-					" The former is [%d], the latter is [%d], the fromElement.getText_asSubqueryWithFormatTemplate() is [%s].",
-					numberOfSubclassesOfEntityClassInFromElement, mapMap_SubClassTableColumnNullValues.size(), fromElement.getText_asSubqueryWithFormatTemplate() );
-			return;
-		}
+
+		return new ParamaterValidationResult_ForPushdownPredictIntoFromElement(true, fromElement, astWhereExpr, mapMap_SubClassTableColumnNullValues);
+	}
+
+	private int getOccurrencesOf_FormatSpecifierForPushdownPredict(String fromElementText_asSubqueryWithFormatTemplate) {
+		return (fromElementText_asSubqueryWithFormatTemplate.length() - String.format(fromElementText_asSubqueryWithFormatTemplate, "").length())
+				/ UnionSubclassEntityPersister.formatSpecifierForPushdownPredict.length();
+	}
+
+	private void doPushdownPredictIntoFromElement(FromElement fromElement, AST astWhereExpr, Map<String, Map<String, String>> mapMap_SubClassTableColumnNullValues) {
 
 		SqlGeneratorForPushdownPredictIntoFromElement sqlGeneratorForPushdownPredictIntoFromElement = null;
 		String newTextForFromElement = fromElement.getText_asSubqueryWithFormatTemplate();
@@ -910,11 +948,6 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("FromElement's text '" + fromElementText + "' is replaced with '" + newTextForFromElement + "'.");
 		}
-	}
-
-	private int getOccurrencesOf_FormatSpecifierForPushdownPredict(String fromElementText_asSubqueryWithFormatTemplate) {
-		return (fromElementText_asSubqueryWithFormatTemplate.length() - String.format(fromElementText_asSubqueryWithFormatTemplate, "").length())
-				/ UnionSubclassEntityPersister.formatSpecifierForPushdownPredict.length();
 	}
 
 	/**
