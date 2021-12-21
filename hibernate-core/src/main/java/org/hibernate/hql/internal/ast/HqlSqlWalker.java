@@ -894,7 +894,7 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 		}
 
 		final AST astWhereClause = fromClause.getNextSibling();
-		if (! validateTextAndTypeOfAST(astWhereClause, "where", SqlTokenTypes.WHERE)) {
+		if (! validateTextIgnoringCaseAndTypeOfAST(astWhereClause, "where", SqlTokenTypes.WHERE)) {
 			if ( LOG.isTraceEnabled() ) {
 				LOG.trace("validateTextAndTypeOfAST(astWhereClause, \"where\", SqlTokenTypes.WHERE) on astWhereClause '" + astWhereClause + "' is false, so does NOT do pushdown-predict.");
 			}
@@ -1009,8 +1009,12 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 		}
 	}
 
-	private boolean validateTextAndTypeOfAST(AST fromClause, String text, int type) {
-		return Objects.nonNull(fromClause) && text.equals(fromClause.getText()) && type == fromClause.getType();
+	private boolean validateTextIgnoringCaseAndTypeOfAST(AST ast, String expectedText, int expectedType) {
+		Objects.requireNonNull(expectedText);
+
+		return Objects.nonNull(ast)
+				&& expectedText.equals(Optional.ofNullable(ast.getText()).map(String::toLowerCase).orElse(null))
+				&& expectedType == ast.getType();
 	}
 
 	private boolean validateTypeOfAST(AST fromClause, int type) {
