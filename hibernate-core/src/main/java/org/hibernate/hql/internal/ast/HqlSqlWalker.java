@@ -1013,12 +1013,8 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 		Objects.requireNonNull(expectedText);
 
 		return Objects.nonNull(ast)
-				&& expectedText.equals(Optional.ofNullable(ast.getText()).map(String::toLowerCase).orElse(null))
+				&& expectedText.toLowerCase().equals(Optional.ofNullable(ast.getText()).map(String::toLowerCase).orElse(null))
 				&& expectedType == ast.getType();
-	}
-
-	private boolean validateTypeOfAST(AST fromClause, int type) {
-		return Objects.nonNull(fromClause) && type == fromClause.getType();
 	}
 
 	protected void postProcessDML(RestrictableStatement statement) throws SemanticException {
