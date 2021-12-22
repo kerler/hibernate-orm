@@ -896,7 +896,7 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 		final AST astWhereClause = fromClause.getNextSibling();
 		if (! validateTextIgnoringCaseAndTypeOfAST(astWhereClause, "where", SqlTokenTypes.WHERE)) {
 			if ( LOG.isTraceEnabled() ) {
-				LOG.trace("validateTextAndTypeOfAST(astWhereClause, \"where\", SqlTokenTypes.WHERE) on astWhereClause '" + astWhereClause + "' is false, so does NOT do pushdown-predict.");
+				LOG.trace("validateTextIgnoringCaseAndTypeOfAST(astWhereClause, \"where\", SqlTokenTypes.WHERE) on astWhereClause '" + astWhereClause + "' is false, so does NOT do pushdown-predict.");
 			}
 			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
 		}
