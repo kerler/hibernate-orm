@@ -913,6 +913,10 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 
 	private void doPushdownPredictIntoFromElement(FromElement fromElement, AST astWhereExpr, Map<String, Map<String, String>> mapMap_SubClassTableColumnNullValues) {
 
+		if ( LOG.isTraceEnabled() ) {
+			LOG.trace("Enter doPushdownPredictIntoFromElement(...). fromElement is '" + fromElement + "'. astWhereExpr is '" + astWhereExpr + "'.");
+		}
+
 		SqlGeneratorForPushdownPredictIntoFromElement sqlGeneratorForPushdownPredictIntoFromElement = null;
 		String newTextForFromElement = fromElement.getText_asSubqueryWithFormatTemplate();
 
@@ -946,7 +950,7 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 		fromElement.setText(newTextForFromElement);
 
 		if ( LOG.isDebugEnabled() ) {
-			LOG.debug("FromElement's text '" + fromElementText + "' is replaced with '" + newTextForFromElement + "'.");
+			LOG.debug("In doPushdownPredictIntoFromElement(...), fromElement's text '" + fromElementText + "' is replaced with '" + newTextForFromElement + "'.");
 		}
 	}
 
