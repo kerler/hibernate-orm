@@ -168,6 +168,7 @@ public class MethodNode extends AbstractSelectExpression implements FunctionNode
 
 			if ( !inSelect ) {
 				fromElement.setText( "" );
+				fromElement.setText_asSubqueryWithFormatTemplate( "" );
 				fromElement.setUseWhereFragment( false );
 			}
 			prepareSelectColumns( selectColumns );
