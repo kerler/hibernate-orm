@@ -23,7 +23,10 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import org.hibernate.QueryException;
+import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.dialect.Dialect;
+import org.hibernate.engine.config.spi.ConfigurationService;
+import org.hibernate.engine.config.spi.StandardConverters;
 import org.hibernate.engine.internal.JoinSequence;
 import org.hibernate.engine.internal.ParameterBinder;
 import org.hibernate.engine.jdbc.spi.JdbcServices;
@@ -862,6 +865,13 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 	}
 
 	private ParamaterValidationResult_ForPushdownPredictIntoFromElement validateParameterForPushdownPredictIntoFromElement(AST query) {
+		if ( ! optionPushdownPredictWhenUsingUnionSubclassEntityPersister() ) {
+			if ( LOG.isTraceEnabled() ) {
+				LOG.trace("'" + AvailableSettings.PUSHDOWN_PREDICT__WHEN_USING_UNION_SUBCLASS_ENEITY_PERSISTER + "' is set to false, so does NOT do pushdown-predict.");
+			}
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
+		}
+
 		if (! (query instanceof QueryNode)) {
 			if ( LOG.isTraceEnabled() ) {
 				LOG.trace("query '" + query + "' is not instanceof QueryNode, so does NOT do pushdown-predict.");
@@ -1712,6 +1722,12 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 
 	public Dialect getDialect() {
 		return sessionFactoryHelper.getFactory().getServiceRegistry().getService( JdbcServices.class ).getDialect();
+	}
+
+	public boolean optionPushdownPredictWhenUsingUnionSubclassEntityPersister() {
+		return sessionFactoryHelper.getFactory().getServiceRegistry()
+				.getService( ConfigurationService.class )
+				.getSetting( AvailableSettings.PUSHDOWN_PREDICT__WHEN_USING_UNION_SUBCLASS_ENEITY_PERSISTER, StandardConverters.BOOLEAN, true );
 	}
 
 	public static void panic() {
