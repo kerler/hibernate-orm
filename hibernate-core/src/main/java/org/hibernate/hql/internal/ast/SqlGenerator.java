@@ -129,6 +129,10 @@ public class SqlGenerator extends SqlGeneratorBase implements ErrorReporter {
 				}
 			}
 		}
+
+		if ( n instanceof FromElement ) {
+			collectedParameters.addAll( ((FromElement)n).getAdditionalParameterSpecs_forPushdownPredict() );
+		}
 	}
 
 	@Override

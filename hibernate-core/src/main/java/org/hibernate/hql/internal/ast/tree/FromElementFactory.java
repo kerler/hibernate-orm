@@ -351,9 +351,8 @@ public class FromElementFactory implements SqlTokenTypes {
 
 	private FromElement createCollectionJoin(JoinSequence collectionJoinSequence, String tableAlias)
 			throws SemanticException {
-		String text = queryableCollection.getTableName();
-		AST ast = createFromElement( text );
-		FromElement destination = (FromElement) ast;
+		FromElement destination = createFromElement_WithSetSubqueryWithFormatTemplate( queryableCollection.getTableName(), queryableCollection.getTableName_asSubqueryWithFormatTemplate() );
+
 		Type elementType = queryableCollection.getElementType();
 		if ( elementType.isCollectionType() ) {
 			throw new SemanticException( "Collections of collections are not supported!" );
@@ -510,9 +509,16 @@ public class FromElementFactory implements SqlTokenTypes {
 
 	private FromElement createFromElement(EntityPersister entityPersister) {
 		Joinable joinable = (Joinable) entityPersister;
-		String text = joinable.getTableName();
+
+		FromElement element = createFromElement_WithSetSubqueryWithFormatTemplate( joinable.getTableName(), joinable.getTableName_asSubqueryWithFormatTemplate() );
+
+		return element;
+	}
+
+	private FromElement createFromElement_WithSetSubqueryWithFormatTemplate(String text, String tableName_asSubqueryWithFormatTemplate) {
 		AST ast = createFromElement( text );
 		FromElement element = (FromElement) ast;
+		element.setText_asSubqueryWithFormatTemplate( tableName_asSubqueryWithFormatTemplate );
 		return element;
 	}
 

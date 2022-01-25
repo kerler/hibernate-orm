@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -52,8 +53,14 @@ import org.hibernate.type.Type;
  */
 public class UnionSubclassEntityPersister extends AbstractEntityPersister {
 
+	// When using String.format(..., someArg) to replace the format specifier, the someArg should be either "" or a string with a leading white space such as " where x=?".
+	public static final String formatSpecifierForPushdownPredict = "%1$s";
+	public static final int lengthOf_formatSpecifierForPushdownPredict = formatSpecifierForPushdownPredict.length();
+
 	// the class hierarchy structure
 	private final String subquery;
+	private final String subqueryWithFormatTemplate;
+	private final TableColumnNullValues subClassTableColumnNullValues; //Order of subclasses in this variable is the same as order of subclasses in 'subquery'.
 	private final String tableName;
 	//private final String rootTableName;
 	private final String[] subclassClosure;
@@ -171,7 +178,10 @@ public class UnionSubclassEntityPersister extends AbstractEntityPersister {
 		}
 		subclassSpaces = ArrayHelper.toStringArray( subclassTables );
 
-		subquery = generateSubquery( persistentClass, creationContext.getMetadata() );
+		subquery = generateSubquery( persistentClass, creationContext.getMetadata() ).subquery;
+		final ResultParamObjectOfGenerateSubquery subqueryWithFormatTemplate = generateSubquery( persistentClass, creationContext.getMetadata(), true );
+		this.subqueryWithFormatTemplate = subqueryWithFormatTemplate.subquery;
+		this.subClassTableColumnNullValues = subqueryWithFormatTemplate.tableColumnNullValues;
 
 		if ( isMultiTable() ) {
 			int idColumnSpan = getIdentifierColumnSpan();
@@ -212,6 +222,15 @@ public class UnionSubclassEntityPersister extends AbstractEntityPersister {
 
 	public String getTableName() {
 		return subquery;
+	}
+
+	@Override
+	public String getTableName_asSubqueryWithFormatTemplate() {
+		return subqueryWithFormatTemplate;
+	}
+
+	public TableColumnNullValues getSubClassTableColumnNullValues() {
+		return subClassTableColumnNullValues;
 	}
 
 	public Type getDiscriminatorType() {
@@ -358,15 +377,24 @@ public class UnionSubclassEntityPersister extends AbstractEntityPersister {
 		return new int[getPropertySpan()];
 	}
 
-	protected String generateSubquery(PersistentClass model, Mapping mapping) {
+	protected ResultParamObjectOfGenerateSubquery generateSubquery(PersistentClass model, Mapping mapping) {
+		return generateSubquery(model, mapping, false);
+	}
+
+	protected ResultParamObjectOfGenerateSubquery generateSubquery(PersistentClass model, Mapping mapping, boolean generateFormatTemplate) {
+
+		TableColumnNullValues tableColumnNullValues = new TableColumnNullValues();
 
 		Dialect dialect = getFactory().getDialect();
 		Settings settings = getFactory().getSettings();
 		SqlStringGenerationContext sqlStringGenerationContext = getFactory().getSqlStringGenerationContext();
 
 		if ( !model.hasSubclasses() ) {
-			return model.getTable().getQualifiedName(
+			return new ResultParamObjectOfGenerateSubquery(
+				model.getTable().getQualifiedName(
 					sqlStringGenerationContext
+				),
+				tableColumnNullValues
 			);
 		}
 
@@ -390,31 +418,50 @@ public class UnionSubclassEntityPersister extends AbstractEntityPersister {
 				model.getSubclassIterator()
 		);
 
+
 		while ( siter.hasNext() ) {
 			PersistentClass clazz = (PersistentClass) siter.next();
 			Table table = clazz.getTable();
 			if ( !table.isAbstractUnionTable() ) {
 				//TODO: move to .sql package!!
+
+				final String tableQualifiedName = table.getQualifiedName(
+						sqlStringGenerationContext
+				);
+
+				tableColumnNullValues.putTableName(tableQualifiedName);
 				buf.append( "select " );
+
 				Iterator citer = columns.iterator();
 				while ( citer.hasNext() ) {
 					Column col = (Column) citer.next();
+					final String colQuotedName = col.getQuotedName(dialect);
+
 					if ( !table.containsColumn( col ) ) {
 						int sqlType = col.getSqlTypeCode( mapping );
-						buf.append( dialect.getSelectClauseNullString( sqlType ) )
+						final String colNullString = dialect.getSelectClauseNullString(sqlType);
+
+						tableColumnNullValues.putTableColumnNullValue(tableQualifiedName, colQuotedName, colNullString);
+						buf.append(colNullString)
 								.append( " as " );
 					}
-					buf.append( col.getQuotedName( dialect ) );
+					buf.append(colQuotedName);
 					buf.append( ", " );
 				}
-				buf.append( clazz.getSubclassId() )
+
+				final int subclassId = clazz.getSubclassId();
+
+				tableColumnNullValues.putTableColumnNullValue(tableQualifiedName, "clazz_", String.valueOf(subclassId));
+				buf.append(subclassId)
 						.append( " as clazz_" );
+
 				buf.append( " from " )
-						.append(
-								table.getQualifiedName(
-										sqlStringGenerationContext
-								)
-						);
+						.append(tableQualifiedName);
+
+				if (generateFormatTemplate) {
+					buf.append(formatSpecifierForPushdownPredict);
+				}
+
 				buf.append( " union " );
 				if ( dialect.supportsUnionAll() ) {
 					buf.append( "all " );
@@ -427,7 +474,17 @@ public class UnionSubclassEntityPersister extends AbstractEntityPersister {
 			buf.setLength( buf.length() - ( dialect.supportsUnionAll() ? 11 : 7 ) );
 		}
 
-		return buf.append( " )" ).toString();
+		return new ResultParamObjectOfGenerateSubquery( buf.append( " )" ).toString(), tableColumnNullValues);
+	}
+
+	private static class ResultParamObjectOfGenerateSubquery {
+		public final String subquery;
+		public final TableColumnNullValues tableColumnNullValues;
+
+		private ResultParamObjectOfGenerateSubquery(String subquery, TableColumnNullValues tableColumnNullValues) {
+			this.subquery = subquery;
+			this.tableColumnNullValues = tableColumnNullValues;
+		}
 	}
 
 	protected String[] getSubclassTableKeyColumns(int j) {
@@ -474,4 +531,52 @@ public class UnionSubclassEntityPersister extends AbstractEntityPersister {
 		return new StaticFilterAliasGenerator( rootAlias );
 	}
 
+	public static class TableColumnNullValues {
+		public final Map<String, Map<String, String>> tableColumnNullValues = makeMap(); //String tableName, String columnName, String columnNullValue
+
+		public String getTableColumnNullValue(String tableName, String columnName) {
+			return getFromMapOfMap(tableName, columnName, tableColumnNullValues);
+		}
+
+		public Map<String, String> putTableName(String tableName) {
+			return putIntoMap(tableName, tableColumnNullValues);
+		}
+
+		public String putTableColumnNullValue(String tableName, String columnName, String nullValueOfColumn) {
+			return putIntoMapOfMap(tableName, columnName, nullValueOfColumn, tableColumnNullValues);
+		}
+
+		private static String getFromMapOfMap(String key1, String key2, Map<String, Map<String, String>> mapOfMap) {
+			if (! mapOfMap.containsKey(key1)) {
+				return null;
+			}
+
+			final Map<String, String> stringIntegerMap = mapOfMap.get(key1);
+			if (! stringIntegerMap.containsKey(key2)) {
+				return null;
+			}
+
+			return stringIntegerMap.get(key2);
+		}
+
+		private static  Map<String, String>  putIntoMap(String key1, Map<String, Map<String, String>> mapOfMap) {
+			if ( mapOfMap.containsKey(key1) ) {
+				throw new IllegalStateException("key '" + key1 + "' in mapOfMap has already existed.");
+			}
+
+			return mapOfMap.put(key1, makeMap());
+		}
+
+		private static String putIntoMapOfMap(String key1, String key2, String value, Map<String, Map<String, String>> mapOfMap) {
+			if (! mapOfMap.containsKey(key1)) {
+				throw new IllegalStateException("key '" + key1 + "' in mapOfMap does NOT exist.");
+			}
+
+			return mapOfMap.get(key1).put(key2, value);
+		}
+
+		private static Map makeMap() {
+			return new LinkedHashMap<>();
+		}
+	}
 }
