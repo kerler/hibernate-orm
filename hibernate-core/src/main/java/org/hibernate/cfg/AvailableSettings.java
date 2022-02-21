@@ -2564,4 +2564,8 @@ public interface AvailableSettings extends org.hibernate.jpa.AvailableSettings {
 	@Deprecated
 	String JMX_DEFAULT_OBJ_NAME_DOMAIN = "org.hibernate.core";
 
+	/**
+	 * Enable pushdown predict when UnionSubclassEntityPersister is used
+	 */
+	String PUSHDOWN_PREDICT__WHEN_USING_UNION_SUBCLASS_ENEITY_PERSISTER = "hibernate.unionSubclassEntityPersister.pushdownPredict";
 }

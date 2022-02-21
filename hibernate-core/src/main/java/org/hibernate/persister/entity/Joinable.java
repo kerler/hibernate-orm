@@ -28,6 +28,10 @@ public interface Joinable {
 	 */
 	public String getTableName();
 
+	default public String getTableName_asSubqueryWithFormatTemplate() {
+		return getTableName();
+	}
+
 	/**
 	 * All columns to select, when loading.
 	 */
