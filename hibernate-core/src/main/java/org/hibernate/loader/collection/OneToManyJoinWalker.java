@@ -109,6 +109,10 @@ public class OneToManyJoinWalker extends CollectionJoinWalker {
 						elementPersister.fromTableFragment( alias ) +
 								elementPersister.fromJoinFragment( alias, true, true )
 				)
+				.setFromClause_asSubqueryWithFormatTemplate(
+						elementPersister.fromTableFragment_asSubqueryWithFormatTemplate( alias ) +
+								elementPersister.fromJoinFragment( alias, true, true )
+				)
 				.setWhereClause( whereString.toString() )
 				.setOuterJoins(
 						ojf.toFromFragmentString(),

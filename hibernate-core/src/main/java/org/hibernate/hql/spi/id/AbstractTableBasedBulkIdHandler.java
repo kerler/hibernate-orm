@@ -184,10 +184,12 @@ public abstract class AbstractTableBasedBulkIdHandler {
 		select.setSelectClause( selectClause.render() );
 
 		String rootTableName = queryable.getTableName();
+		String rootTableName_asSubqueryWithFormatTemplate = queryable.getTableName_asSubqueryWithFormatTemplate();
 		String fromJoinFragment = queryable.fromJoinFragment(tableAlias, true, false );
 		String whereJoinFragment = queryable.whereJoinFragment(tableAlias, true, false );
 
 		select.setFromClause( rootTableName + ' ' + tableAlias + fromJoinFragment );
+		select.setFromClause_asSubqueryWithFormatTemplate( rootTableName_asSubqueryWithFormatTemplate + ' ' + tableAlias + fromJoinFragment );
 
 		if ( whereJoinFragment == null ) {
 			whereJoinFragment = "";

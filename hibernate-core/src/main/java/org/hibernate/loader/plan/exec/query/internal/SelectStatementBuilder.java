@@ -10,6 +10,7 @@ import org.hibernate.LockMode;
 import org.hibernate.LockOptions;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.internal.util.StringHelper;
+import org.hibernate.pushdown_predict.util.FromClause_PushdownPredict_Util_ForFromClause;
 
 /**
  * Largely a copy of the {@link org.hibernate.sql.Select} class, but changed up slightly to better meet needs
@@ -22,7 +23,10 @@ public class SelectStatementBuilder {
 	public final Dialect dialect;
 
 	private StringBuilder selectClause = new StringBuilder();
+
 	private StringBuilder fromClause = new StringBuilder();
+	private StringBuilder fromClause_asSubqueryWithFormatTemplate = new StringBuilder();
+
 //	private StringBuilder outerJoinsAfterFrom;
 	private String outerJoinsAfterFrom;
 	private StringBuilder whereClause;
@@ -71,6 +75,15 @@ public class SelectStatementBuilder {
 		this.guesstimatedBufferSize += fragment.length();
 	}
 
+	public void appendFromClauseFragment_asSubqueryWithFormatTemplate(String fragment_asSubqueryWithFormatTemplate) {
+		if ( this.fromClause_asSubqueryWithFormatTemplate.length() > 0 ) {
+			this.fromClause_asSubqueryWithFormatTemplate.append( ", " );
+			this.guesstimatedBufferSize += 2;
+		}
+		this.fromClause_asSubqueryWithFormatTemplate.append( fragment_asSubqueryWithFormatTemplate );
+		this.guesstimatedBufferSize += fragment_asSubqueryWithFormatTemplate.length();
+	}
+
 	/**
 	 * Appends the specified table name and alias as a from clause fragment.
 	 *
@@ -79,6 +92,10 @@ public class SelectStatementBuilder {
 	 */
 	public void appendFromClauseFragment(String tableName, String alias) {
 		appendFromClauseFragment( tableName + ' ' + alias );
+	}
+
+	public void appendFromClauseFragment_asSubqueryWithFormatTemplate(String tableName_asSubqueryWithFormatTemplate, String alias) {
+		appendFromClauseFragment_asSubqueryWithFormatTemplate( tableName_asSubqueryWithFormatTemplate + ' ' + alias );
 	}
 
 	/**
@@ -193,7 +210,13 @@ public class SelectStatementBuilder {
 		buf.append( "select " )
 				.append( selectClause )
 				.append( " from " )
-				.append( fromClause );
+				.append(
+						FromClause_PushdownPredict_Util_ForFromClause.makeFromClause_withPushdownPredictIntoFromClause_IfNeed(
+								stringBuilderToString(fromClause),
+								stringBuilderToString(fromClause_asSubqueryWithFormatTemplate),
+								outerJoinsAfterFrom,
+								outerJoinsAfterWhere,
+								stringBuilderToString(whereClause)) );
 
 		if ( StringHelper.isNotEmpty( outerJoinsAfterFrom ) ) {
 			buf.append( outerJoinsAfterFrom );
@@ -231,5 +254,9 @@ public class SelectStatementBuilder {
 
 	private boolean isNotEmpty(StringBuilder builder) {
 		return builder != null && builder.length() > 0;
+	}
+
+	private String stringBuilderToString(StringBuilder builder) {
+		return builder != null ? builder.toString() : null;
 	}
 }

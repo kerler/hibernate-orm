@@ -111,6 +111,10 @@ public abstract class AbstractEntityJoinWalker extends JoinWalker {
 						getDialect().appendLockHint( lockOptions, persister.fromTableFragment( alias ) ) +
 								persister.fromJoinFragment( alias, true, true )
 				)
+				.setFromClause_asSubqueryWithFormatTemplate(
+						getDialect().appendLockHint( lockOptions, persister.fromTableFragment_asSubqueryWithFormatTemplate( alias ) ) +
+								persister.fromJoinFragment( alias, true, true )
+				)
 				.setWhereClause( condition )
 				.setOuterJoins(
 						ojf.toFromFragmentString(),

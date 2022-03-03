@@ -8,6 +8,7 @@ package org.hibernate.loader.entity;
 
 import java.io.Serializable;
 import java.sql.ResultSet;
+import java.util.Collections;
 import java.util.List;
 
 import org.hibernate.HibernateException;
@@ -17,6 +18,7 @@ import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.loader.OuterJoinLoader;
 import org.hibernate.persister.entity.OuterJoinLoadable;
+import org.hibernate.pushdown_predict.util.FromClause_PushdownPredict_Util_ForPositionalParameters;
 import org.hibernate.transform.ResultTransformer;
 import org.hibernate.type.Type;
 
@@ -122,4 +124,13 @@ public abstract class AbstractEntityLoader
 		return true;
 	}
 
+	@Override
+	protected ResultParamObjectOfPositionalParameterTypesAndValues getPositionalParameterTypesAndValues__ForPushdownPredict_IfNeed(Type identifierType, Object id) {
+		final int iDuplicateNumberOfPositionalParameterTypesAndValues = 1 + FromClause_PushdownPredict_Util_ForPositionalParameters.getNumberOfPositionalParameterTypesAndValues_toDuplicateForPushdownPredictIntoFromClause(persister, getSQLString());
+
+		final Type[] types = Collections.nCopies(iDuplicateNumberOfPositionalParameterTypesAndValues, identifierType).toArray(new Type[0]);
+		final Object[] values = Collections.nCopies(iDuplicateNumberOfPositionalParameterTypesAndValues, id).toArray(new Object[0]);
+
+		return new ResultParamObjectOfPositionalParameterTypesAndValues(types, values);
+	}
 }

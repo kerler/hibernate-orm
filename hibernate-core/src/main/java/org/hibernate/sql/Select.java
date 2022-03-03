@@ -9,6 +9,7 @@ import org.hibernate.LockMode;
 import org.hibernate.LockOptions;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.internal.util.StringHelper;
+import org.hibernate.pushdown_predict.util.FromClause_PushdownPredict_Util_ForFromClause;
 
 
 /**
@@ -18,7 +19,10 @@ import org.hibernate.internal.util.StringHelper;
 public class Select {
 
 	protected String selectClause;
+
 	protected String fromClause;
+	protected String fromClause_asSubqueryWithFormatTemplate;
+
 	protected String outerJoinsAfterFrom;
 	protected String whereClause;
 	protected String outerJoinsAfterWhere;
@@ -46,7 +50,13 @@ public class Select {
 		}
 		
 		buf.append("select ").append(selectClause)
-				.append(" from ").append(fromClause);
+				.append(" from ").append(
+						FromClause_PushdownPredict_Util_ForFromClause.makeFromClause_withPushdownPredictIntoFromClause_IfNeed(
+								fromClause,
+								fromClause_asSubqueryWithFormatTemplate,
+								outerJoinsAfterFrom,
+								outerJoinsAfterWhere,
+								whereClause));
 		
 		if ( StringHelper.isNotEmpty(outerJoinsAfterFrom) ) {
 			buf.append(outerJoinsAfterFrom);
@@ -92,9 +102,21 @@ public class Select {
 		return this;
 	}
 
+	public Select setFromClause_asSubqueryWithFormatTemplate(String fromClause_asSubqueryWithFormatTemplate) {
+		this.fromClause_asSubqueryWithFormatTemplate = fromClause_asSubqueryWithFormatTemplate;
+		this.guesstimatedBufferSize += fromClause_asSubqueryWithFormatTemplate.length();
+		return this;
+	}
+
 	public Select setFromClause(String tableName, String alias) {
 		this.fromClause = tableName + ' ' + alias;
 		this.guesstimatedBufferSize += fromClause.length();
+		return this;
+	}
+
+	public Select setFromClause_asSubqueryWithFormatTemplate(String tableName_asSubqueryWithFormatTemplate, String alias) {
+		this.fromClause_asSubqueryWithFormatTemplate = tableName_asSubqueryWithFormatTemplate + ' ' + alias;
+		this.guesstimatedBufferSize += fromClause_asSubqueryWithFormatTemplate.length();
 		return this;
 	}
 

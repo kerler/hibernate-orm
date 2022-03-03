@@ -82,6 +82,7 @@ import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.internal.log.DeprecationLogger;
 import org.hibernate.internal.util.StringHelper;
 import org.hibernate.internal.util.collections.ArrayHelper;
+import org.hibernate.pushdown_predict.util.FromClause_PushdownPredict_Util_ForPositionalParameters;
 import org.hibernate.param.CollectionFilterKeyParameterSpecification;
 import org.hibernate.param.NamedParameterSpecification;
 import org.hibernate.param.ParameterSpecification;
@@ -865,12 +866,15 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 	}
 
 	private ParamaterValidationResult_ForPushdownPredictIntoFromElement validateParameterForPushdownPredictIntoFromElement(AST query) {
-		if ( ! optionPushdownPredictWhenUsingUnionSubclassEntityPersister() ) {
-			if ( LOG.isTraceEnabled() ) {
-				LOG.trace("'" + AvailableSettings.PUSHDOWN_PREDICT__WHEN_USING_UNION_SUBCLASS_ENEITY_PERSISTER + "' is set to false, so does NOT do pushdown-predict.");
-			}
-			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
-		}
+		/**
+		 * TODO: Checking on AvailableSettings.PUSHDOWN_PREDICT__WHEN_USING_UNION_SUBCLASS_ENEITY_PERSISTER is disabled temporarily. The checking need to be enabled for all the code related with PushdownPredict, not only the code below.
+		 */
+//		if ( ! optionPushdownPredictWhenUsingUnionSubclassEntityPersister() ) {
+//			if ( LOG.isTraceEnabled() ) {
+//				LOG.trace("'" + AvailableSettings.PUSHDOWN_PREDICT__WHEN_USING_UNION_SUBCLASS_ENEITY_PERSISTER + "' is set to false, so does NOT do pushdown-predict.");
+//			}
+//			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
+//		}
 
 		if (! (query instanceof QueryNode)) {
 			if ( LOG.isTraceEnabled() ) {
@@ -929,8 +933,7 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 	}
 
 	private int getOccurrencesOf_FormatSpecifierForPushdownPredict(String fromElementText_asSubqueryWithFormatTemplate) {
-		return (fromElementText_asSubqueryWithFormatTemplate.length() - String.format(fromElementText_asSubqueryWithFormatTemplate, "").length())
-				/ UnionSubclassEntityPersister.formatSpecifierForPushdownPredict.length();
+		return FromClause_PushdownPredict_Util_ForPositionalParameters.countStringMatches(fromElementText_asSubqueryWithFormatTemplate, UnionSubclassEntityPersister.formatSpecifierForPushdownPredict);
 	}
 
 	private void doPushdownPredictIntoFromElement(FromElement fromElement, AST astWhereExpr, Map<String, Map<String, String>> mapMap_SubClassTableColumnNullValues) {

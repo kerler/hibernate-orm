@@ -10,6 +10,7 @@ import java.io.Serializable;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.hibernate.AssertionFailure;
@@ -35,6 +36,7 @@ import org.hibernate.loader.plan.exec.process.spi.ResultSetProcessorResolver;
 import org.hibernate.loader.plan.exec.query.spi.QueryBuildingParameters;
 import org.hibernate.loader.plan.exec.spi.LoadQueryDetails;
 import org.hibernate.loader.plan.spi.LoadPlan;
+import org.hibernate.pushdown_predict.util.FromClause_PushdownPredict_Util_ForPositionalParameters;
 import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.persister.entity.OuterJoinLoadable;
 import org.hibernate.pretty.MessageHelper;
@@ -273,8 +275,11 @@ public abstract class AbstractLoadPlanBasedEntityLoader extends AbstractLoadPlan
 		final Object result;
 		try {
 			final QueryParameters qp = new QueryParameters();
-			qp.setPositionalParameterTypes( new Type[] { entityPersister.getIdentifierType() } );
-			qp.setPositionalParameterValues( new Object[] { id } );
+
+			final int iDuplicateNumberOfPositionalParameterTypesAndValues = 1 + FromClause_PushdownPredict_Util_ForPositionalParameters.getNumberOfPositionalParameterTypesAndValues_toDuplicateForPushdownPredictIntoFromClause(entityPersister, staticLoadQuery.getSqlStatement());
+			qp.setPositionalParameterTypes( Collections.nCopies(iDuplicateNumberOfPositionalParameterTypesAndValues, entityPersister.getIdentifierType()).toArray(new Type[0]) );
+			qp.setPositionalParameterValues( Collections.nCopies(iDuplicateNumberOfPositionalParameterTypesAndValues, id).toArray(new Object[0]) );
+
 			qp.setOptionalObject( optionalObject );
 			qp.setOptionalEntityName( entityPersister.getEntityName() );
 			qp.setOptionalId( id );

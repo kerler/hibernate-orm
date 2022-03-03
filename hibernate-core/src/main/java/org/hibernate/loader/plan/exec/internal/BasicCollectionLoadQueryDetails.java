@@ -74,6 +74,10 @@ public class BasicCollectionLoadQueryDetails extends AbstractCollectionLoadQuery
 				getQueryableCollection().getTableName(),
 				getCollectionReferenceAliases().getCollectionTableAlias()
 		);
+		selectStatementBuilder.appendFromClauseFragment_asSubqueryWithFormatTemplate(
+				getQueryableCollection().getTableName_asSubqueryWithFormatTemplate(),
+				getCollectionReferenceAliases().getCollectionTableAlias()
+		);
 	}
 
 	@Override

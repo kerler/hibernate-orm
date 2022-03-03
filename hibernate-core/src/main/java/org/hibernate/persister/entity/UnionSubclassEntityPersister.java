@@ -7,6 +7,8 @@
 package org.hibernate.persister.entity;
 
 import java.io.Serializable;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,6 +31,7 @@ import org.hibernate.dialect.Dialect;
 import org.hibernate.engine.spi.ExecuteUpdateResultCheckStyle;
 import org.hibernate.engine.spi.Mapping;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
+import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.id.IdentityGenerator;
 import org.hibernate.internal.FilterAliasGenerator;
 import org.hibernate.internal.StaticFilterAliasGenerator;
@@ -40,6 +43,7 @@ import org.hibernate.mapping.PersistentClass;
 import org.hibernate.mapping.Subclass;
 import org.hibernate.mapping.Table;
 import org.hibernate.persister.spi.PersisterCreationContext;
+import org.hibernate.pushdown_predict.util.FromClause_PushdownPredict_Util_ForPositionalParameters;
 import org.hibernate.sql.SelectFragment;
 import org.hibernate.sql.SimpleSelect;
 import org.hibernate.type.StandardBasicTypes;
@@ -55,7 +59,6 @@ public class UnionSubclassEntityPersister extends AbstractEntityPersister {
 
 	// When using String.format(..., someArg) to replace the format specifier, the someArg should be either "" or a string with a leading white space such as " where x=?".
 	public static final String formatSpecifierForPushdownPredict = "%1$s";
-	public static final int lengthOf_formatSpecifierForPushdownPredict = formatSpecifierForPushdownPredict.length();
 
 	// the class hierarchy structure
 	private final String subquery;
@@ -321,6 +324,11 @@ public class UnionSubclassEntityPersister extends AbstractEntityPersister {
 	}
 
 	@Override
+	public String fromTableFragment_asSubqueryWithFormatTemplate(String name) {
+		return getTableName_asSubqueryWithFormatTemplate() + ' ' + name;
+	}
+
+	@Override
 	protected String filterFragment(String name) {
 		return hasWhere()
 				? " and " + getSQLWhereString( name )
@@ -375,6 +383,15 @@ public class UnionSubclassEntityPersister extends AbstractEntityPersister {
 
 	protected int[] getPropertyTableNumbers() {
 		return new int[getPropertySpan()];
+	}
+
+	@Override
+	protected void getIdentifierType_nullSafeSet__ForPushdownPredict_IfNeed(PreparedStatement ps, Serializable id, SharedSessionContractImplementor session, String sqlSnapshotSelectString) throws SQLException {
+		final int iDuplicateNumberOfPositionalParameterTypesAndValues = 1 + FromClause_PushdownPredict_Util_ForPositionalParameters.getNumberOfPositionalParameterTypesAndValues_toDuplicateForPushdownPredictIntoFromClause(this, sqlSnapshotSelectString);
+
+		for (int index = 1 ; index <= iDuplicateNumberOfPositionalParameterTypesAndValues ; index ++) {
+			getIdentifierType().nullSafeSet(ps, id, index, session);
+		}
 	}
 
 	protected ResultParamObjectOfGenerateSubquery generateSubquery(PersistentClass model, Mapping mapping) {
