@@ -6,7 +6,6 @@
  */
 package org.hibernate.pushdown_predict.util;
 
-import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.internal.util.StringHelper;
@@ -113,7 +112,7 @@ public class FromClause_PushdownPredict_Util_ForFromClause {
 
 		if (! whereClause.matches(regexSingleWhereCondition_ForWholeString)) {
 			if ( LOG.isTraceEnabled() ) {
-				LOG.trace("whereClause '" + whereClause + "' does NOT matche regex '" + regexSingleWhereCondition_ForWholeString + "', so does NOT do pushdown-predict.");
+				LOG.trace("whereClause '" + whereClause + "' does NOT match regex '" + regexSingleWhereCondition_ForWholeString + "', so does NOT do pushdown-predict.");
 			}
 			return ParamaterValidationResult_ForPushdownPredictIntoFromClause.FALSE;
 		}
