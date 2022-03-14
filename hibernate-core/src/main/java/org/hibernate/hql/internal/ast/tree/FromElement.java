@@ -75,6 +75,10 @@ public class FromElement extends HqlSqlWalkerNode implements DisplayableNode, Pa
 	private boolean dereferencedBySuperclassProperty;
 	private boolean dereferencedBySubclassProperty;
 
+	private String text_asSubqueryWithFormatTemplate;
+	private String originalText_asSubqueryWithFormatTemplate;
+	private List<ParameterSpecification> additionalParameterSpecs_forPushdownPredict = new ArrayList<>();
+
 	public FromElement() {
 	}
 
@@ -470,6 +474,30 @@ public class FromElement extends HqlSqlWalkerNode implements DisplayableNode, Pa
 
 	public static final String DISCRIMINATOR_PROPERTY_NAME = "class";
 	private TypeDiscriminatorMetadata typeDiscriminatorMetadata;
+
+	/**
+	 * The logic is similar to SqlNode.java::setText(String text_asSubqueryWithFormatTemplate)
+	 *
+	 * @param text_asSubqueryWithFormatTemplate
+	 */
+	public void setText_asSubqueryWithFormatTemplate(String text_asSubqueryWithFormatTemplate) {
+		this.text_asSubqueryWithFormatTemplate = text_asSubqueryWithFormatTemplate;
+		if ( text_asSubqueryWithFormatTemplate != null && text_asSubqueryWithFormatTemplate.length() > 0 && originalText_asSubqueryWithFormatTemplate == null ) {
+			originalText_asSubqueryWithFormatTemplate = text_asSubqueryWithFormatTemplate;
+		}
+	}
+
+	public String getText_asSubqueryWithFormatTemplate() {
+		return text_asSubqueryWithFormatTemplate;
+	}
+
+	public String getOriginalText_asSubqueryWithFormatTemplate() {
+		return originalText_asSubqueryWithFormatTemplate;
+	}
+
+	public List<ParameterSpecification> getAdditionalParameterSpecs_forPushdownPredict() {
+		return additionalParameterSpecs_forPushdownPredict;
+	}
 
 	public boolean isNonQualifiedPropertyRef(String identifier) {
 		return elementType.isNonQualifiedPropertyRef( identifier );

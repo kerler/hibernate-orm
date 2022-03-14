@@ -9,6 +9,7 @@ package org.hibernate.loader.collection.plan;
 import java.io.Serializable;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
 
 import org.hibernate.AssertionFailure;
 import org.hibernate.HibernateException;
@@ -25,8 +26,11 @@ import org.hibernate.loader.plan.exec.internal.BatchingLoadQueryDetailsFactory;
 import org.hibernate.loader.plan.exec.query.spi.QueryBuildingParameters;
 import org.hibernate.loader.plan.exec.spi.LoadQueryDetails;
 import org.hibernate.loader.plan.spi.LoadPlan;
+import org.hibernate.pushdown_predict.util.FromClause_PushdownPredict_Util_ForPositionalParameters;
 import org.hibernate.persister.collection.QueryableCollection;
+import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.pretty.MessageHelper;
+import org.hibernate.type.EntityType;
 import org.hibernate.type.Type;
 
 /**
@@ -74,11 +78,11 @@ public abstract class AbstractLoadPlanBasedCollectionInitializer
 					MessageHelper.collectionInfoString( collectionPersister, id, getFactory() ) );
 		}
 
-
-		final Serializable[] ids = new Serializable[]{id};
+		final int iDuplicateNumberOfPositionalParameterTypesAndValues = 1 + getNumberOfPositionalParameterTypesAndValues_toDuplicateForPushdownPredictIntoFromClause();
+		final Serializable[] ids = Collections.nCopies(iDuplicateNumberOfPositionalParameterTypesAndValues, id).toArray(new Serializable[0]);
 		try {
 			final QueryParameters qp = new QueryParameters();
-			qp.setPositionalParameterTypes( new Type[]{ collectionPersister.getKeyType() } );
+			qp.setPositionalParameterTypes( Collections.nCopies(iDuplicateNumberOfPositionalParameterTypesAndValues, collectionPersister.getKeyType()).toArray(new Type[0]) );
 			qp.setPositionalParameterValues( ids );
 			qp.setCollectionKeys( ids );
 
@@ -103,6 +107,17 @@ public abstract class AbstractLoadPlanBasedCollectionInitializer
 		}
 
 		log.debug( "Done loading collection" );
+	}
+
+	private int getNumberOfPositionalParameterTypesAndValues_toDuplicateForPushdownPredictIntoFromClause() {
+		if (! collectionPersister.getElementType().isEntityType()) {
+			return 0;
+		}
+
+		final EntityType entityType = (EntityType) collectionPersister.getElementType();
+		final EntityPersister entityPersister = entityType.getAssociatedEntityPersister(getFactory());
+
+		return FromClause_PushdownPredict_Util_ForPositionalParameters.getNumberOfPositionalParameterTypesAndValues_toDuplicateForPushdownPredictIntoFromClause(entityPersister, staticLoadQuery.getSqlStatement());
 	}
 
 	protected QueryableCollection collectionPersister() {

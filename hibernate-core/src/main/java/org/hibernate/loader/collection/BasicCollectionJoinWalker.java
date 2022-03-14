@@ -110,6 +110,7 @@ public class BasicCollectionJoinWalker extends CollectionJoinWalker {
 				selectString( associations )
 			)
 			.setFromClause( collectionPersister.getTableName(), alias )
+			.setFromClause_asSubqueryWithFormatTemplate( collectionPersister.getTableName_asSubqueryWithFormatTemplate(), alias )
 			.setWhereClause( whereString.toString()	)
 			.setOuterJoins(
 				ojf.toFromFragmentString(),

@@ -1563,7 +1563,7 @@ public abstract class AbstractEntityPersister
 					.getStatementPreparer()
 					.prepareStatement( getSQLSnapshotSelectString() );
 			try {
-				getIdentifierType().nullSafeSet( ps, id, 1, session );
+				getIdentifierType_nullSafeSet__ForPushdownPredict_IfNeed(ps, id, session, getSQLSnapshotSelectString());
 				//if ( isVersioned() ) getVersionType().nullSafeSet( ps, version, getIdentifierColumnSpan()+1, session );
 				ResultSet rs = session.getJdbcCoordinator().getResultSetReturn().extract( ps );
 				try {
@@ -1604,6 +1604,11 @@ public abstract class AbstractEntityPersister
 			);
 		}
 
+	}
+
+	//Overridable by subclasses
+	protected void getIdentifierType_nullSafeSet__ForPushdownPredict_IfNeed(PreparedStatement ps, Serializable id, SharedSessionContractImplementor session, String sqlSnapshotSelectString) throws SQLException {
+		getIdentifierType().nullSafeSet( ps, id, 1, session );
 	}
 
 	@Override
@@ -1673,6 +1678,7 @@ public abstract class AbstractEntityPersister
 		final String rooAlias = getRootAlias();
 
 		select.setFromClause( fromTableFragment( rooAlias ) + fromJoinFragment( rooAlias, true, false ) );
+		select.setFromClause_asSubqueryWithFormatTemplate( fromTableFragment_asSubqueryWithFormatTemplate( rooAlias ) + fromJoinFragment( rooAlias, true, false ) );
 
 		SelectFragment selectFragment = new SelectFragment();
 		selectFragment.addColumns( rooAlias, getIdentifierColumnNames(), getIdentifierAliases() );
@@ -1774,6 +1780,8 @@ public abstract class AbstractEntityPersister
 
 		String fromClause = fromTableFragment( getRootAlias() ) +
 				fromJoinFragment( getRootAlias(), true, false );
+		String fromClause_asSubqueryWithFormatTemplate = fromTableFragment_asSubqueryWithFormatTemplate( getRootAlias() ) +
+				fromJoinFragment( getRootAlias(), true, false );
 
 		String whereClause = new StringBuilder()
 				.append( String.join( "=? and ", aliasedIdColumns ) )
@@ -1783,6 +1791,7 @@ public abstract class AbstractEntityPersister
 
 		return select.setSelectClause( selectClause )
 				.setFromClause( fromClause )
+				.setFromClause_asSubqueryWithFormatTemplate( fromClause_asSubqueryWithFormatTemplate )
 				.setOuterJoins( "", "" )
 				.setWhereClause( whereClause )
 				.toStatementString();
@@ -1836,6 +1845,8 @@ public abstract class AbstractEntityPersister
 
 		String fromClause = fromTableFragment( getRootAlias() ) +
 				fromJoinFragment( getRootAlias(), true, false );
+		String fromClause_asSubqueryWithFormatTemplate = fromTableFragment_asSubqueryWithFormatTemplate( getRootAlias() ) +
+				fromJoinFragment( getRootAlias(), true, false );
 
 		String whereClause = new StringBuilder()
 				.append(
@@ -1856,6 +1867,7 @@ public abstract class AbstractEntityPersister
 
 		return select.setSelectClause( selectClause )
 				.setFromClause( fromClause )
+				.setFromClause_asSubqueryWithFormatTemplate( fromClause_asSubqueryWithFormatTemplate )
 				.setOuterJoins( "", "" )
 				.setWhereClause( whereClause )
 				.toStatementString();
@@ -5526,6 +5538,7 @@ public abstract class AbstractEntityPersister
 		}
 		select.setSelectClause( concretePropertySelectFragmentSansLeadingComma( getRootAlias(), naturalIdMarkers ) );
 		select.setFromClause( fromTableFragment( getRootAlias() ) + fromJoinFragment( getRootAlias(), true, false ) );
+		select.setFromClause_asSubqueryWithFormatTemplate( fromTableFragment_asSubqueryWithFormatTemplate( getRootAlias() ) + fromJoinFragment( getRootAlias(), true, false ) );
 
 		String[] aliasedIdColumns = StringHelper.qualify( getRootAlias(), getIdentifierColumnNames() );
 		String whereClause = new StringBuilder()
@@ -5726,6 +5739,7 @@ public abstract class AbstractEntityPersister
 
 		select.setSelectClause( identifierSelectFragment( rootAlias, "" ) );
 		select.setFromClause( fromTableFragment( rootAlias ) + fromJoinFragment( rootAlias, true, false ) );
+		select.setFromClause_asSubqueryWithFormatTemplate( fromTableFragment_asSubqueryWithFormatTemplate( rootAlias ) + fromJoinFragment( rootAlias, true, false ) );
 
 		final StringBuilder whereClause = new StringBuilder();
 		final int[] propertyTableNumbers = getPropertyTableNumbers();

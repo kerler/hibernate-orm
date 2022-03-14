@@ -62,6 +62,7 @@ class FromElementType {
 		this.entityType = entityType;
 		if ( persister != null ) {
 			fromElement.setText( ( (Queryable) persister ).getTableName() + " " + getTableAlias() );
+			fromElement.setText_asSubqueryWithFormatTemplate( ( (Queryable) persister ).getTableName_asSubqueryWithFormatTemplate() + " " + getTableAlias() );
 		}
 	}
 
@@ -366,6 +367,7 @@ class FromElementType {
 		if ( !queryableCollection.isOneToMany() ) {
 			// For many-to-many joins, use the table name from the queryable collection for the default text.
 			fromElement.setText( queryableCollection.getTableName() + " " + getTableAlias() );
+			fromElement.setText_asSubqueryWithFormatTemplate( queryableCollection.getTableName_asSubqueryWithFormatTemplate() + " " + getTableAlias() );
 		}
 	}
 

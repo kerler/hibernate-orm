@@ -75,10 +75,16 @@ public class OneToManyLoadQueryDetails extends AbstractCollectionLoadQueryDetail
 				(OuterJoinLoadable) getElementEntityReference().getEntityPersister();
 		//final String tableAlias = getCollectionReferenceAliases().getCollectionTableAlias();
 		final String tableAlias = getElementEntityReferenceAliases().getTableAlias();
+
 		final String fragment =
 				elementOuterJoinLoadable.fromTableFragment( tableAlias ) +
 						elementOuterJoinLoadable.fromJoinFragment( tableAlias, true, true);
+		final String fragment_asSubqueryWithFormatTemplate =
+				elementOuterJoinLoadable.fromTableFragment_asSubqueryWithFormatTemplate( tableAlias ) +
+						elementOuterJoinLoadable.fromJoinFragment( tableAlias, true, true);
+
 		selectStatementBuilder.appendFromClauseFragment( fragment );
+		selectStatementBuilder.appendFromClauseFragment_asSubqueryWithFormatTemplate( fragment_asSubqueryWithFormatTemplate );
 	}
 
 	private EntityReference getElementEntityReference() {

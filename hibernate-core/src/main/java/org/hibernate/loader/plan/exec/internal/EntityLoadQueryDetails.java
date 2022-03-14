@@ -151,6 +151,8 @@ public class EntityLoadQueryDetails extends AbstractLoadQueryDetails {
 	 */
 	protected void applyRootReturnTableFragments(SelectStatementBuilder select) {
 		final String fromTableFragment;
+		final String fromTableFragment_asSubqueryWithFormatTemplate;
+
 		final String rootAlias = entityReferenceAliases.getTableAlias();
 		final OuterJoinLoadable outerJoinLoadable = (OuterJoinLoadable) getRootEntityReturn().getEntityPersister();
 		final Dialect dialect = getSessionFactory().getJdbcServices().getJdbcEnvironment().getDialect();
@@ -159,6 +161,11 @@ public class EntityLoadQueryDetails extends AbstractLoadQueryDetails {
 					getQueryBuildingParameters().getLockOptions(),
 					outerJoinLoadable.fromTableFragment( rootAlias )
 			);
+			fromTableFragment_asSubqueryWithFormatTemplate = dialect.appendLockHint(
+					getQueryBuildingParameters().getLockOptions(),
+					outerJoinLoadable.fromTableFragment_asSubqueryWithFormatTemplate( rootAlias )
+			);
+
 			select.setLockOptions( getQueryBuildingParameters().getLockOptions() );
 		}
 		else if ( getQueryBuildingParameters().getLockMode() != null ) {
@@ -166,12 +173,20 @@ public class EntityLoadQueryDetails extends AbstractLoadQueryDetails {
 					getQueryBuildingParameters().getLockMode(),
 					outerJoinLoadable.fromTableFragment( rootAlias )
 			);
+			fromTableFragment_asSubqueryWithFormatTemplate = dialect.appendLockHint(
+					getQueryBuildingParameters().getLockMode(),
+					outerJoinLoadable.fromTableFragment_asSubqueryWithFormatTemplate( rootAlias )
+			);
+
 			select.setLockMode( getQueryBuildingParameters().getLockMode() );
 		}
 		else {
 			fromTableFragment = outerJoinLoadable.fromTableFragment( rootAlias );
+			fromTableFragment_asSubqueryWithFormatTemplate = outerJoinLoadable.fromTableFragment_asSubqueryWithFormatTemplate( rootAlias );
 		}
+
 		select.appendFromClauseFragment( fromTableFragment + outerJoinLoadable.fromJoinFragment( rootAlias, true, true ) );
+		select.appendFromClauseFragment_asSubqueryWithFormatTemplate( fromTableFragment_asSubqueryWithFormatTemplate + outerJoinLoadable.fromJoinFragment( rootAlias, true, true ) );
 	}
 
 	protected void applyRootReturnFilterRestrictions(SelectStatementBuilder selectStatementBuilder) {

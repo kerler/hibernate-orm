@@ -80,6 +80,7 @@ import org.hibernate.persister.entity.Loadable;
 import org.hibernate.persister.entity.UniqueKeyLoadable;
 import org.hibernate.pretty.MessageHelper;
 import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.pushdown_predict.util.FromClause_PushdownPredict_Util_ForPositionalParameters;
 import org.hibernate.query.spi.ScrollableResultsImplementor;
 import org.hibernate.stat.spi.StatisticsImplementor;
 import org.hibernate.transform.CacheableResultTransformer;
@@ -2428,8 +2429,11 @@ public abstract class Loader {
 		List result;
 		try {
 			QueryParameters qp = new QueryParameters();
-			qp.setPositionalParameterTypes( new Type[] {identifierType} );
-			qp.setPositionalParameterValues( new Object[] {id} );
+
+			ResultParamObjectOfPositionalParameterTypesAndValues resultParamObjectOfPositionalParameterTypesAndValues = getPositionalParameterTypesAndValues__ForPushdownPredict_IfNeed(identifierType, id);
+			qp.setPositionalParameterTypes(resultParamObjectOfPositionalParameterTypesAndValues.positionalParameterTypes);
+			qp.setPositionalParameterValues(resultParamObjectOfPositionalParameterTypesAndValues.positionalParameterValues);
+
 			qp.setOptionalObject( optionalObject );
 			qp.setOptionalEntityName( optionalEntityName );
 			qp.setOptionalId( optionalIdentifier );
@@ -2458,6 +2462,24 @@ public abstract class Loader {
 
 		return result;
 
+	}
+
+	//Overridable by subclasses
+	protected ResultParamObjectOfPositionalParameterTypesAndValues getPositionalParameterTypesAndValues__ForPushdownPredict_IfNeed(Type identifierType, Object id) {
+		final Type[] types = {identifierType};
+		final Object[] values = {id};
+
+		return new ResultParamObjectOfPositionalParameterTypesAndValues(types, values);
+	}
+
+	protected static class ResultParamObjectOfPositionalParameterTypesAndValues {
+		final Type[] positionalParameterTypes;
+		final Object[] positionalParameterValues;
+
+		public ResultParamObjectOfPositionalParameterTypesAndValues(Type[] positionalParameterTypes, Object[] positionalParameterValues) {
+			this.positionalParameterTypes = positionalParameterTypes;
+			this.positionalParameterValues = positionalParameterValues;
+		}
 	}
 
 	/**

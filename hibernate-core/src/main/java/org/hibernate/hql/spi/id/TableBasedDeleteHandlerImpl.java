@@ -20,6 +20,7 @@ import org.hibernate.hql.internal.ast.tree.FromElement;
 import org.hibernate.param.ParameterSpecification;
 import org.hibernate.persister.collection.AbstractCollectionPersister;
 import org.hibernate.persister.entity.Queryable;
+import org.hibernate.pushdown_predict.util.FromClause_PushdownPredict_Util_ForPositionalParameters;
 import org.hibernate.sql.Delete;
 import org.hibernate.type.CollectionType;
 import org.hibernate.type.Type;
@@ -115,9 +116,14 @@ public class TableBasedDeleteHandlerImpl
 					ps = session.getJdbcCoordinator().getStatementPreparer().prepareStatement( idInsertSelect, false );
 					int position = 1;
 					position += handlePrependedParametersOnIdSelection( ps, session, position );
-					for ( ParameterSpecification parameterSpecification : idSelectParameterSpecifications ) {
-						position += parameterSpecification.bind( ps, queryParameters, session, position );
+
+					final int iDuplicateNumberOfPositionalParameterTypesAndValues = 1 + FromClause_PushdownPredict_Util_ForPositionalParameters.getNumberOfPositionalParameterTypesAndValues_toDuplicateForPushdownPredictIntoFromClause(targetedPersister, idInsertSelect);
+					for (int index = 1 ; index <= iDuplicateNumberOfPositionalParameterTypesAndValues ; index ++) {
+						for ( ParameterSpecification parameterSpecification : idSelectParameterSpecifications ) {
+							position += parameterSpecification.bind( ps, queryParameters, session, position );
+						}
 					}
+
 					resultCount = session.getJdbcCoordinator().getResultSetReturn().executeUpdate( ps );
 				}
 				finally {

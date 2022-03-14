@@ -18,9 +18,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 import org.hibernate.QueryException;
+import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.dialect.Dialect;
+import org.hibernate.engine.config.spi.ConfigurationService;
+import org.hibernate.engine.config.spi.StandardConverters;
 import org.hibernate.engine.internal.JoinSequence;
 import org.hibernate.engine.internal.ParameterBinder;
 import org.hibernate.engine.jdbc.spi.JdbcServices;
@@ -77,6 +83,7 @@ import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.internal.log.DeprecationLogger;
 import org.hibernate.internal.util.StringHelper;
 import org.hibernate.internal.util.collections.ArrayHelper;
+import org.hibernate.pushdown_predict.util.FromClause_PushdownPredict_Util_ForPositionalParameters;
 import org.hibernate.param.CollectionFilterKeyParameterSpecification;
 import org.hibernate.param.NamedParameterSpecification;
 import org.hibernate.param.ParameterSpecification;
@@ -86,6 +93,7 @@ import org.hibernate.persister.collection.CollectionPropertyNames;
 import org.hibernate.persister.collection.QueryableCollection;
 import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.persister.entity.Queryable;
+import org.hibernate.persister.entity.UnionSubclassEntityPersister;
 import org.hibernate.sql.JoinType;
 import org.hibernate.type.AssociationType;
 import org.hibernate.type.CompositeType;
@@ -834,10 +842,219 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 					}
 				}
 			}
+
+			pushdownPredictIntoFromElement_IfNeed(query);
 		}
 		finally {
 			popFromClause();
 		}
+	}
+
+	private void pushdownPredictIntoFromElement_IfNeed(AST query) {
+		final ParamaterValidationResult_ForPushdownPredictIntoFromElement paramaterValidateResult = validateParameterForPushdownPredictIntoFromElement(query);
+		if (! paramaterValidateResult.validParameter) {
+			return;
+		}
+
+		doPushdownPredictIntoFromElement(paramaterValidateResult.fromElement, paramaterValidateResult.astWhereExpr, paramaterValidateResult.mapMap_SubClassTableColumnNullValues);
+	}
+
+	private static class ParamaterValidationResult_ForPushdownPredictIntoFromElement {
+		public static final ParamaterValidationResult_ForPushdownPredictIntoFromElement FALSE
+				= new ParamaterValidationResult_ForPushdownPredictIntoFromElement(false, null, null, null);
+
+		public final boolean validParameter;
+		public final FromElement fromElement;
+		public final AST astWhereExpr;
+		public final Map<String, Map<String, String>> mapMap_SubClassTableColumnNullValues;
+
+		private ParamaterValidationResult_ForPushdownPredictIntoFromElement(boolean validParameter, FromElement fromElement, AST astWhereExpr, Map<String, Map<String, String>> mapMap_SubClassTableColumnNullValues) {
+			this.validParameter = validParameter;
+			this.fromElement = fromElement;
+			this.astWhereExpr = astWhereExpr;
+			this.mapMap_SubClassTableColumnNullValues = mapMap_SubClassTableColumnNullValues;
+		}
+	}
+
+	private ParamaterValidationResult_ForPushdownPredictIntoFromElement validateParameterForPushdownPredictIntoFromElement(AST query) {
+		/**
+		 * TODO: Checking on AvailableSettings.PUSHDOWN_PREDICT__WHEN_USING_UNION_SUBCLASS_ENEITY_PERSISTER is disabled temporarily. The checking need to be enabled for all the code related with PushdownPredict, not only the code below.
+		 */
+//		if ( ! optionPushdownPredictWhenUsingUnionSubclassEntityPersister() ) {
+//			if ( LOG.isTraceEnabled() ) {
+//				LOG.trace("'" + AvailableSettings.PUSHDOWN_PREDICT__WHEN_USING_UNION_SUBCLASS_ENEITY_PERSISTER + "' is set to false, so does NOT do pushdown-predict.");
+//			}
+//			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
+//		}
+
+		if (! (query instanceof QueryNode)) {
+			if ( LOG.isTraceEnabled() ) {
+				LOG.trace("query '" + query + "' is not instanceof QueryNode, so does NOT do pushdown-predict.");
+			}
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
+		}
+
+		final QueryNode queryNode = (QueryNode) query;
+		final FromClause fromClause = queryNode.getFromClause();
+		if ( fromClause.getFromElements().size() != 1 ) {
+			if ( LOG.isTraceEnabled() ) {
+				LOG.trace("fromClause '" + fromClause + "' has " + fromClause.getFromElements().size() + " fromElements, not just 1, so does NOT do pushdown-predict.");
+			}
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
+		}
+
+		final Object objFromElement = fromClause.getFromElements().get(0);
+		if (! (objFromElement instanceof FromElement)) {
+			if ( LOG.isTraceEnabled() ) {
+				LOG.trace("fromClause.getFromElements().get(0) '" + objFromElement + "' is not FromElement, so does NOT do pushdown-predict.");
+			}
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
+		}
+
+		final FromElement fromElement = (FromElement) objFromElement;
+		if ( ! isValidFromElementForPushdownPredict(fromElement) ) {
+			if ( LOG.isTraceEnabled() ) {
+				LOG.trace("isValidFromElementForPushdownPredict(fromElement) on fromElement '" + fromElement + "' is false, so does NOT do pushdown-predict.");
+			}
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
+		}
+
+		final Map<String, Map<String, String>> mapMap_SubClassTableColumnNullValues
+				= ((UnionSubclassEntityPersister) fromElement.getEntityPersister()).getSubClassTableColumnNullValues().tableColumnNullValues;
+		final int numberOfSubclassesOfEntityClassInFromElement = getOccurrencesOf_FormatSpecifierForPushdownPredict(fromElement.getText_asSubqueryWithFormatTemplate());
+		if ( numberOfSubclassesOfEntityClassInFromElement != mapMap_SubClassTableColumnNullValues.size() ) {
+			LOG.warnf( "numberOfSubclassesOfEntityClassInFromElement != mapMap_SubClassTableColumnNullValues.size()." +
+							" The former is [%d], the latter is [%d], the fromElement.getText_asSubqueryWithFormatTemplate() is [%s].",
+					numberOfSubclassesOfEntityClassInFromElement, mapMap_SubClassTableColumnNullValues.size(), fromElement.getText_asSubqueryWithFormatTemplate() );
+
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
+		}
+
+		final AST astWhereClause = fromClause.getNextSibling();
+		if (! validateTextIgnoringCaseAndTypeOfAST(astWhereClause, "where", SqlTokenTypes.WHERE)) {
+			if ( LOG.isTraceEnabled() ) {
+				LOG.trace("validateTextIgnoringCaseAndTypeOfAST(astWhereClause, \"where\", SqlTokenTypes.WHERE) on astWhereClause '" + astWhereClause + "' is false, so does NOT do pushdown-predict.");
+			}
+			return ParamaterValidationResult_ForPushdownPredictIntoFromElement.FALSE;
+		}
+
+		final AST astWhereExpr = astWhereClause.getFirstChild();
+
+		return new ParamaterValidationResult_ForPushdownPredictIntoFromElement(true, fromElement, astWhereExpr, mapMap_SubClassTableColumnNullValues);
+	}
+
+	private int getOccurrencesOf_FormatSpecifierForPushdownPredict(String fromElementText_asSubqueryWithFormatTemplate) {
+		return FromClause_PushdownPredict_Util_ForPositionalParameters.countStringMatches(fromElementText_asSubqueryWithFormatTemplate, UnionSubclassEntityPersister.formatSpecifierForPushdownPredict);
+	}
+
+	private void doPushdownPredictIntoFromElement(FromElement fromElement, AST astWhereExpr, Map<String, Map<String, String>> mapMap_SubClassTableColumnNullValues) {
+
+		if ( LOG.isTraceEnabled() ) {
+			LOG.trace("Enter doPushdownPredictIntoFromElement(...). fromElement is '" + fromElement + "'. astWhereExpr is '" + astWhereExpr + "'.");
+		}
+
+		SqlGeneratorForPushdownPredictIntoFromElement sqlGeneratorForPushdownPredictIntoFromElement = null;
+		String newTextForFromElement = fromElement.getText_asSubqueryWithFormatTemplate();
+
+		for (Map.Entry<String, Map<String, String>> entry: mapMap_SubClassTableColumnNullValues.entrySet() ) {
+
+			sqlGeneratorForPushdownPredictIntoFromElement = new SqlGeneratorForPushdownPredictIntoFromElement(
+					sessionFactoryHelper.getFactory(), fromElement.getTableAlias(), entry.getKey(), entry.getValue());
+
+			try {
+				sqlGeneratorForPushdownPredictIntoFromElement.whereExpr(astWhereExpr);
+			}
+			catch (RecognitionException e) {
+				LOG.error(e);
+				return;
+			}
+
+			newTextForFromElement = newTextForFromElement.replaceFirst(
+					Pattern.quote(UnionSubclassEntityPersister.formatSpecifierForPushdownPredict),
+					" where " + sqlGeneratorForPushdownPredictIntoFromElement.getSQL());
+		}
+
+		//For each sqlGeneratorForPushdownPredictIntoFromElement created in the above loop, the sqlGeneratorForPushdownPredictIntoFromElement.getCollectedParameters().size()
+		//has the same value, as each sqlGeneratorForPushdownPredictIntoFromElement traverse the same 'astWhereExpr'.
+		boolean succeeded_InDuplicateParameterSpecs = duplicateParameterSpecs(
+				fromElement, sqlGeneratorForPushdownPredictIntoFromElement.getCollectedParameters().size(), mapMap_SubClassTableColumnNullValues.size());
+		if (! succeeded_InDuplicateParameterSpecs) {
+			return;
+		}
+
+		final String fromElementText = fromElement.getText();
+		fromElement.setText(newTextForFromElement);
+
+		if ( LOG.isDebugEnabled() ) {
+			LOG.debug("In doPushdownPredictIntoFromElement(...), fromElement's text '" + fromElementText + "' is replaced with '" + newTextForFromElement + "'.");
+		}
+	}
+
+	/**
+	 * @return true if succeeded.
+	 */
+	private boolean duplicateParameterSpecs(FromElement fromElement, int numberOfParameterNode, int numberOfSubclassesOfEntityClassInFromElement) {
+
+		if (parameterSpecs.size() < numberOfParameterNode) {
+			LOG.error("parameterSpecs.size() should not be less than sqlGeneratorForPushdownPredictIntoFromElement.getNumberOfParameterNode()"
+					+ ". The former is '" + parameterSpecs.size() + "', the latter is '" + numberOfParameterNode
+					+ "'. fromElement is '" + fromElement + "'.");
+			return false;
+		}
+
+		final List<ParameterSpecification> parameterSpecifications_toBeRepeated = getSubList_ofParameterSpecifications_toBeRepeated(numberOfParameterNode);
+
+		for (int i = 0; i < numberOfSubclassesOfEntityClassInFromElement; i++) {
+			fromElement.getAdditionalParameterSpecs_forPushdownPredict().addAll(parameterSpecifications_toBeRepeated);
+		}
+
+		return true;
+	}
+
+	private List<ParameterSpecification> getSubList_ofParameterSpecifications_toBeRepeated(int numberOfParameterNode) {
+//		return parameterSpecs.subList(parameterSpecs.size() - numberOfParameterNode, parameterSpecs.size());
+
+		List<ParameterSpecification> ret = new ArrayList<>();
+		for (int i = parameterSpecs.size() - numberOfParameterNode; i <  parameterSpecs.size(); i++) {
+			ret.add(parameterSpecs.get(i));
+		}
+
+		return ret;
+	}
+
+	private boolean isValidFromElementForPushdownPredict(FromElement fromElement) {
+		final String fromElementText = fromElement.getText();
+		final String fromElementText_asSubqueryWithFormatTemplate = fromElement.getText_asSubqueryWithFormatTemplate();
+
+		logTraceFor_isValidFromElementForPushdownPredict_IfNeed(fromElement, fromElementText, fromElementText_asSubqueryWithFormatTemplate);
+
+		return fromElement.getQueryable() instanceof UnionSubclassEntityPersister
+				&& Objects.nonNull(fromElementText_asSubqueryWithFormatTemplate)
+				&& ! fromElementText.equals(fromElementText_asSubqueryWithFormatTemplate)
+				&& fromElementText_asSubqueryWithFormatTemplate.contains(UnionSubclassEntityPersister.formatSpecifierForPushdownPredict)
+				&& String.format(fromElementText_asSubqueryWithFormatTemplate, "").equals(fromElementText)
+				&& fromElement.getEntityPersister() instanceof UnionSubclassEntityPersister;
+	}
+
+	private void logTraceFor_isValidFromElementForPushdownPredict_IfNeed(FromElement fromElement, String fromElementText, String fromElementText_asSubqueryWithFormatTemplate) {
+		if ( LOG.isTraceEnabled() ) {
+			LOG.trace("In isValidFromElementForPushdownPredict(), for fromElement '" + fromElement + "':");
+
+			LOG.trace("'fromElement.getQueryable() instanceof UnionSubclassEntityPersister' is '" + String.valueOf(fromElement.getQueryable() instanceof UnionSubclassEntityPersister) + "'");
+			LOG.trace("'Objects.nonNull(fromElementText_asSubqueryWithFormatTemplate)' is '" + String.valueOf(Objects.nonNull(fromElementText_asSubqueryWithFormatTemplate)) + "'");
+			LOG.trace("'! fromElementText.equals(fromElementText_asSubqueryWithFormatTemplate)' is '" + String.valueOf(! fromElementText.equals(fromElementText_asSubqueryWithFormatTemplate)) + "'");
+			LOG.trace("'fromElementText_asSubqueryWithFormatTemplate.contains(UnionSubclassEntityPersister.formatSpecifierForPushdownPredict)' is '" + String.valueOf(fromElementText_asSubqueryWithFormatTemplate.contains(UnionSubclassEntityPersister.formatSpecifierForPushdownPredict)) + "'");
+			LOG.trace("'String.format(fromElementText_asSubqueryWithFormatTemplate, \"\").equals(fromElementText)' is '" + String.valueOf(String.format(fromElementText_asSubqueryWithFormatTemplate, "").equals(fromElementText)) + "'");
+			LOG.trace("'fromElement.getEntityPersister() instanceof UnionSubclassEntityPersister' is '" + String.valueOf(fromElement.getEntityPersister() instanceof UnionSubclassEntityPersister) + "'");
+		}
+	}
+
+	private boolean validateTextIgnoringCaseAndTypeOfAST(AST ast, String expectedText, int expectedType) {
+		Objects.requireNonNull(expectedText);
+
+		return Objects.nonNull(ast)
+				&& expectedText.toLowerCase().equals(Optional.ofNullable(ast.getText()).map(String::toLowerCase).orElse(null))
+				&& expectedType == ast.getType();
 	}
 
 	protected void postProcessDML(RestrictableStatement statement) throws SemanticException {
@@ -847,6 +1064,8 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 		Queryable persister = fromElement.getQueryable();
 		// Make #@%$^#^&# sure no alias is applied to the table name
 		fromElement.setText( persister.getTableName() );
+		fromElement.setText_asSubqueryWithFormatTemplate( persister.getTableName_asSubqueryWithFormatTemplate() );
+
 
 //		// append any filter fragments; the EMPTY_MAP is used under the assumption that
 //		// currently enabled filters should not affect this process
@@ -1517,6 +1736,12 @@ public class HqlSqlWalker extends HqlSqlBaseWalker implements ErrorReporter, Par
 
 	public Dialect getDialect() {
 		return sessionFactoryHelper.getFactory().getServiceRegistry().getService( JdbcServices.class ).getDialect();
+	}
+
+	public boolean optionPushdownPredictWhenUsingUnionSubclassEntityPersister() {
+		return sessionFactoryHelper.getFactory().getServiceRegistry()
+				.getService( ConfigurationService.class )
+				.getSetting( AvailableSettings.PUSHDOWN_PREDICT__WHEN_USING_UNION_SUBCLASS_ENEITY_PERSISTER, StandardConverters.BOOLEAN, true );
 	}
 
 	public static void panic() {

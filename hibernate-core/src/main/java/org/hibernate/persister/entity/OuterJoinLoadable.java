@@ -80,6 +80,10 @@ public interface OuterJoinLoadable extends Loadable, Joinable {
 	 */
 	public String fromTableFragment(String alias);
 
+	default public String fromTableFragment_asSubqueryWithFormatTemplate(String alias) {
+		return fromTableFragment(alias);
+	}
+
 	/**
 	 * Get the column names for the given property path
 	 */
