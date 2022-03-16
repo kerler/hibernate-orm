@@ -16,7 +16,11 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class FromClause_PushdownPredict_Util_ForFromClause {
+public final class FromClause_PushdownPredict_Util_ForFromClause {
+
+	private FromClause_PushdownPredict_Util_ForFromClause() {
+		throw new AssertionError("Instantiating utility class.");
+	}
 
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( FromClause_PushdownPredict_Util_ForFromClause.class );
 

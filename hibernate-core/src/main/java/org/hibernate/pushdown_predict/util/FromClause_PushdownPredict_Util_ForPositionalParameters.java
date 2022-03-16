@@ -14,7 +14,11 @@ import org.hibernate.persister.entity.UnionSubclassEntityPersister;
 
 import java.util.regex.Pattern;
 
-public class FromClause_PushdownPredict_Util_ForPositionalParameters {
+public final class FromClause_PushdownPredict_Util_ForPositionalParameters {
+
+	private FromClause_PushdownPredict_Util_ForPositionalParameters() {
+		throw new AssertionError("Instantiating utility class.");
+	}
 
 	private static final CoreMessageLogger LOG = CoreLogging.messageLogger( FromClause_PushdownPredict_Util_ForPositionalParameters.class );
 
